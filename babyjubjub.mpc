@@ -1,0 +1,45 @@
+import sys
+sys.path.append("../MP-SPDZ")
+from Compiler.types import sint
+
+# Constants
+A = cint(168700)
+D = cint(168696)
+Q = cint(21888242871839275222246405745257275088548364400416034343698204186575808495617)
+
+class BabyJubJubPoint:
+    def __init__(self, x1, y1):
+        self.x = sint(x1)
+        self.y = sint(y1)
+
+    def __add__(self, Q):
+        # TODO : Short circuiting for when either point is 0
+        x3 = (self.x * Q.y + self.y * Q.x).int_div(sint(1) + (D * self.x * self.y * Q.x * Q.y))
+        y3 = (self.y*Q.y - A*self.x*Q.x).int_div(1 - (D *self.x * self.y * Q.x * Q.y))
+        return BabyJubJubPoint(x3, y3)
+
+    def double(self):
+        # TODO : Short circuiting for when the point is 0
+        return self + self
+
+    def __mul__(self, s):
+        pass
+
+a = 168700
+d = 168696
+q = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+
+x1 = sint(17777552123799933955779906779655732241715742912184938656739573121738514868268)
+y1 = sint(2626589144620713026669568689430873010625803728049924121243784502389097019475)
+p1 = BabyJubJubPoint(x1, y1)
+
+x2 = sint(16540640123574156134436876038791482806971768689494387082833631921987005038935)
+y2 = sint(20819045374670962167435360035096875258406992893633759881276124905556507972311)
+p2 = BabyJubJubPoint(x2, y2)
+
+p3 = p1 + p2
+
+expected_x3 = (x1*y2+y1*x2)/(1+d*x1*x2*y1*y2) % d
+expected_y3 = (y1*y2-a*x1*x2)/(1-d*x1*x2*y1*y2) % d 
+
+print_ln('expected (%s, %s), got (%s, %s)', expected_x3, expected_y3, p3.x.reveal(), p3.y.reveal())
