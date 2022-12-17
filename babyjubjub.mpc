@@ -25,6 +25,11 @@ class BabyJubJubPoint:
         # TODO : Short circuiting for when the point is 0
         return self + self
 
+    def ec_if_else(self, Q, b):
+        x_r = b * (self.x - Q.x) + Q.x
+        y_r = b * (self.y - Q.y) + Q.y
+        return BabyJubJubPoint(x_r, y_r)
+
     def __mul__(self, s):
         pass
 
@@ -71,3 +76,10 @@ expected_x3 = (x1*y1+y1*x1).int_div(1+d*x1*x1*y1*y1)
 expected_y3 = (y1*y1-a*x1*x1).int_div(1-d*x1*x1*y1*y1)
 
 print_ln('expected (%s, %s), got (%s, %s)', expected_x3.reveal(), expected_y3.reveal(), p3.x.reveal(), p3.y.reveal())
+
+# Check conditional
+p_r0 = p3.ec_if_else(p2, 1)
+print_ln('expected (%s, %s), got (%s, %s)', p3.x.reveal(), p3.y.reveal(), p_r0.x.reveal(), p_r0.y.reveal())
+
+p_r1 = p3.ec_if_else(p2, 0)
+print_ln('expected (%s, %s), got (%s, %s)', p2.x.reveal(), p2.y.reveal(), p_r1.x.reveal(), p_r1.y.reveal())
