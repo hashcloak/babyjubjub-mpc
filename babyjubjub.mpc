@@ -22,6 +22,9 @@ class BabyJubJubPoint:
         y = 5472060717959818805561601436314318772137091100104008585924551046643952123905
         return BabyJubJubPoint(x, y, self.n_players)
 
+    def __neg__(self):
+        return BabyJubJubPoint(-self.x, self.y)
+
     def __add__(self, Q):
         # TODO : Short circuiting for when either point is 0
         x3 = (self.x * Q.y + self.y * Q.x).int_div(sint(1) + (d_pub * self.x * self.y * Q.x * Q.y))
@@ -40,7 +43,6 @@ class BabyJubJubPoint:
     @staticmethod
     def _get_point_from(player):
         x, y = sint.get_input_from(player, size=2)
-        print_ln('x: %s, y: %s', x.reveal(), y.reveal())
         return BabyJubJubPoint(x, y)
 
     """
@@ -64,6 +66,23 @@ class BabyJubJubPoint:
             aR = R + BabyJubJubPoint._get_point_from(i)
 
         return (R, aR)
+
+    def add_uf(self, *points):
+        n_points = len(points)
+        S = [BabyJubJubPoint.rand(n_points) for i in range(n_points)]
+        T = [points[0]]
+        for i in range(1, n_points):
+            t = -S[i] + points[i]
+            T.append(t)
+        U_shares = []
+        for i in range(n_points):
+            U_shares.append(T[i] + S[i])
+
+        Ux = sum([u.x for u in U_shares])
+        Uy = sum([u.y for u in U_shares])
+        U = BabyJubJubPoint(Ux, Uy)
+        R = U + -S[n_points - 1]
+        return R
 
     def __mul__(self, s):
         pass
@@ -120,9 +139,13 @@ p_r1 = p3.ec_if_else(p2, 0)
 print_ln('expected (%s, %s), got (%s, %s)', p2.x.reveal(), p2.y.reveal(), p_r1.x.reveal(), p_r1.y.reveal())
 
 # Check random point generation
-new_p = BabyJubJubPoint.rand(3)
-print_ln('random curve point: (%s, %s)', new_p.x.reveal(), new_p.y.reveal())
+#new_p = BabyJubJubPoint.rand(3)
+#print_ln('random curve point: (%s, %s)', new_p.x.reveal(), new_p.y.reveal())
 
 # Check pair random point generation
-rand_pair1, rand_pair2 = BabyJubJubPoint.rand_pair(3)
-print_ln('R: (%s, %s), \naR: (%s, %s)', rand_pair1.x.reveal(), rand_pair1.y.reveal(), rand_pair2.x.reveal(), rand_pair2.y.reveal())
+#rand_pair1, rand_pair2 = BabyJubJubPoint.rand_pair(3)
+#print_ln('R: (%s, %s), \naR: (%s, %s)', rand_pair1.x.reveal(), rand_pair1.y.reveal(), rand_pair2.x.reveal(), rand_pair2.y.reveal())
+
+# Check add_uf
+new_uf_p = p1.add_uf(p2, p3)
+print_ln('(%s, %s)', new_uf_p.x.reveal(), new_uf_p.y.reveal())
