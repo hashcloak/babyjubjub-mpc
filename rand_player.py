@@ -55,6 +55,8 @@ generator = Point((x,y))
 
 if __name__ == '__main__':
     for i in range(3):
+        with open("./MP-SPDZ/Programs/Public-Input/babyjubjub", "w") as f:
+            f.write("{}".format(a))
         with open("Player-Data/Input-P{}-0".format(i), 'w+') as f:
             r = randrange(0, q)
             R = scalar_multiplication(r, generator)
