@@ -1,14 +1,63 @@
 import sys
 sys.path.append("../MP-SPDZ")
 from Compiler.types import sint
+from random import randrange
+from py_ecc.fields import bn128_FQ
 
 program.use_edabit(True)
-program.set_bit_length(32)
+program.set_bit_length(62)
 
 # Constants
 a_pub = sint(168700)
 d_pub = sint(168696)
 q_pub = sint(21888242871839275222246405745257275088548364400416034343698204186575808495617)
+
+## prime
+q = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+
+
+class LocalBabyJubJubPoint:
+    def __init__(self, x, y):
+        self.x, self.y = bn128_FQ(x), bn128_FQ(y)
+
+    @staticmethod
+    def generator():
+        x = 995203441582195749578291179787384436505546430278305826713579947235728471134
+        y = 5472060717959818805561601436314318772137091100104008585924551046643952123905
+        return LocalBabyJubJubPoint(x, y)
+    
+    def point_add(self, point2):
+        if self.x == 0 and self.y == 0:
+            return point2
+
+        if point2.x == 0 and point2.y == 0:
+            return self
+            
+        x3 = (self.x * point2.y + self.y * point2.x) / (1 + (d * self.x * self.y * point2.x * point2.y))
+        y3 = (self.y*point2.y - a*self.x*point2.x) / (1 - (d *self.x * self.y * point2.x * point2.y))
+        return LocalBabyJubJubPoint(x3, y3)
+
+    def double(self):
+        return self.point_add(self)
+
+    def scalar_multiplication(self, scalar):
+        point = self
+        px = point.x
+        py = point.y
+        ap = LocalBabyJubJubPoint(0,0)
+
+        rem = scalar
+        while(rem != 0):
+            if ((rem & 1) != 0):
+                ap = self.point_add(point)
+            point = self.double()
+
+            rem //= 2
+
+        return ap
+
+    def __str__(self):
+        return "({}, {})".format(self.x, self.y)
 
 class BabyJubJubPoint:
     def __init__(self, x1, y1, n=0):
@@ -23,13 +72,22 @@ class BabyJubJubPoint:
         return BabyJubJubPoint(x, y, self.n_players)
 
     def __neg__(self):
-        return BabyJubJubPoint(-self.x, self.y)
+        return BabyJubJubPoint(-self.x, self.y, self.n_players)
+
+    @property
+    def additive_identity(self):
+        x = 0
+        y = 1
+        return BabyJubJubPoint(x, y, self.n_players)
 
     def __add__(self, Q):
         # TODO : Short circuiting for when either point is 0
         x3 = (self.x * Q.y + self.y * Q.x).int_div(sint(1) + (d_pub * self.x * self.y * Q.x * Q.y))
         y3 = (self.y*Q.y - a_pub*self.x*Q.x).int_div(1 - (d_pub *self.x * self.y * Q.x * Q.y))
         return BabyJubJubPoint(x3, y3, self.n_players)
+
+    def __radd__(self, Q):
+        return self.__add__(Q)
 
     def double(self):
         # TODO : Short circuiting for when the point is 0
@@ -49,21 +107,36 @@ class BabyJubJubPoint:
     Returns a random BabyJubJubPoint
     Assumes that the format of each players input is already in point format i.e. (x, y)
     """
-    @staticmethod
-    def rand(n_players):
-        R = BabyJubJubPoint._get_point_from(0)
-        for i in range(1, n_players):
-            R = R + BabyJubJubPoint._get_point_from(i)
+    def rand(self):
+        R = self.additive_identity
 
-        return R   
+        """
+        @for_range(self.n_players)
+        def _(i):
+        """
+        for i in range(self.n_players):
+            ri = randrange(0, q)
+            print_ln_to(i, "%s", ri)
+            Ri = LocalBabyJubJubPoint.generator().scalar_multiplication(ri)
+            R += BabyJubJubPoint(int(Ri.x), int(Ri.y), self.n_players)
 
-    @staticmethod
-    def rand_pair(n_players):
-        R = BabyJubJubPoint._get_point_from(0)
-        aR = BabyJubJubPoint._get_point_from(0)
-        for i in range(1, n_players):
-            R = R + BabyJubJubPoint._get_point_from(i)
-            aR = R + BabyJubJubPoint._get_point_from(i)
+        return R
+
+    def rand_pair(self, a):
+        R = self.additive_identity
+        aR = self.additive_identity
+
+        """
+        @for_range(self.n_players)
+        def _(i):
+        """
+        for i in range(self.n_players):
+            ri = randrange(0, q)
+            print_ln_to(i, "%s", ri)
+            Ri = LocalBabyJubJubPoint.generator().scalar_multiplication(ri)
+            aRi = Ri.scalar_multiplication(a)
+            R = R + BabyJubJubPoint(int(Ri.x), int(Ri.y), self.n_players)
+            aR = aR + BabyJubJubPoint(int(aRi.x), int(aRi.y), self.n_players)
 
         return (R, aR)
 
@@ -84,6 +157,9 @@ class BabyJubJubPoint:
         R = U + -S[n_points - 1]
         return R
 
+    def pub_mul(self, exp):
+        S, eS = BabyJubJubPoint.rand_pair()
+
     def __mul__(self, s):
         pass
 
@@ -99,7 +175,7 @@ p1 = BabyJubJubPoint(x1, y1, 3)
 x2 = sint(0)
 y2 = sint(0)
 p2 = BabyJubJubPoint(x2, y2, 3)
-
+"""
 p3 = p1 + p2
 
 expected_x3 = (x1*y2+y1*x2).int_div(1+d*x1*x2*y1*y2)
@@ -137,15 +213,18 @@ print_ln('expected (%s, %s), got (%s, %s)', p3.x.reveal(), p3.y.reveal(), p_r0.x
 
 p_r1 = p3.ec_if_else(p2, 0)
 print_ln('expected (%s, %s), got (%s, %s)', p2.x.reveal(), p2.y.reveal(), p_r1.x.reveal(), p_r1.y.reveal())
+"""
 
 # Check random point generation
-#new_p = BabyJubJubPoint.rand(3)
-#print_ln('random curve point: (%s, %s)', new_p.x.reveal(), new_p.y.reveal())
+new_p = p1.rand()
+print_ln('random curve point: (%s, %s)', new_p.x.reveal(), new_p.y.reveal())
 
 # Check pair random point generation
-#rand_pair1, rand_pair2 = BabyJubJubPoint.rand_pair(3)
-#print_ln('R: (%s, %s), \naR: (%s, %s)', rand_pair1.x.reveal(), rand_pair1.y.reveal(), rand_pair2.x.reveal(), rand_pair2.y.reveal())
+rand_pair1, rand_pair2 = p1.rand_pair(3)
+print_ln('R: (%s, %s), \naR: (%s, %s)', rand_pair1.x.reveal(), rand_pair1.y.reveal(), rand_pair2.x.reveal(), rand_pair2.y.reveal())
 
+"""
 # Check add_uf
 new_uf_p = p1.add_uf(p2, p3)
 print_ln('(%s, %s)', new_uf_p.x.reveal(), new_uf_p.y.reveal())
+"""
