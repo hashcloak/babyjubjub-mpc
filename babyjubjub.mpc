@@ -8,9 +8,9 @@ program.use_edabit(True)
 program.set_bit_length(62)
 
 # Constants
-a_pub = sint(168700)
-d_pub = sint(168696)
-q_pub = sint(21888242871839275222246405745257275088548364400416034343698204186575808495617)
+a_pub = cint(168700)
+d_pub = cint(168696)
+q_pub = cint(21888242871839275222246405745257275088548364400416034343698204186575808495617)
 
 ## prime
 q = 21888242871839275222246405745257275088548364400416034343698204186575808495617
@@ -79,6 +79,9 @@ class BabyJubJubPoint:
         x = 0
         y = 1
         return BabyJubJubPoint(x, y, self.n_players)
+
+    def reveal(self):
+        return (self.x.reveal(), self.y.reveal())
 
     def __add__(self, Q):
         # TODO : Short circuiting for when either point is 0
@@ -156,9 +159,41 @@ class BabyJubJubPoint:
         U = BabyJubJubPoint(Ux, Uy)
         R = U + -S[n_points - 1]
         return R
+    
+    def pub_add(self, Q):
+        self_pub = self.reveal()
+        x3 = (self_pub[0]*Q[1] + self_pub[1] * Q[0])//(cint(1) + (d_pub * self_pub[0] * self_pub[1] * Q[0] * Q[1]))
+        y3 = (self_pub[1]*Q[1] - a_pub*self_pub[0]*Q[0])//(cint(1) - (d_pub *self_pub[0] * self_pub[1] * Q[0] * Q[1]))
+        return (x3, y3)
 
-    def pub_mul(self, exp):
-        S, eS = BabyJubJubPoint.rand_pair()
+    def pub_double(self):
+        return self.pub_add(self.reveal())
+
+    def pub_scalar_mul(self, scalar):
+        point = self.reveal()
+        px = point[0]
+        py = point[1]
+        ap = (0, 0)
+
+        rem = scalar
+        while(rem != 0):
+            if ((rem & 1) != 0):
+                ap = self.pub_add(point)
+            point = self.pub_double()
+
+            rem //= 2
+
+        return ap
+
+    def pub_exp(self, exp):
+        S, eS = self.rand_pair(exp)
+        secret_T = S + self
+        U = secret_T.pub_scalar_mul(exp)
+        secret_U = BabyJubJubPoint(U[0], U[1])
+        R = secret_U + -eS
+        return R
+
+
 
     def __mul__(self, s):
         pass
@@ -213,7 +248,6 @@ print_ln('expected (%s, %s), got (%s, %s)', p3.x.reveal(), p3.y.reveal(), p_r0.x
 
 p_r1 = p3.ec_if_else(p2, 0)
 print_ln('expected (%s, %s), got (%s, %s)', p2.x.reveal(), p2.y.reveal(), p_r1.x.reveal(), p_r1.y.reveal())
-"""
 
 # Check random point generation
 new_p = p1.rand()
@@ -223,8 +257,15 @@ print_ln('random curve point: (%s, %s)', new_p.x.reveal(), new_p.y.reveal())
 rand_pair1, rand_pair2 = p1.rand_pair(3)
 print_ln('R: (%s, %s), \naR: (%s, %s)', rand_pair1.x.reveal(), rand_pair1.y.reveal(), rand_pair2.x.reveal(), rand_pair2.y.reveal())
 
-"""
+
 # Check add_uf
 new_uf_p = p1.add_uf(p2, p3)
 print_ln('(%s, %s)', new_uf_p.x.reveal(), new_uf_p.y.reveal())
 """
+
+# Check pub_exp
+exp_point = p2.pub_exp(1)
+print_ln('Expected: (%s, %s), Got: (%s, %s)', p2.x.reveal(), p2.y.reveal(), exp_point.x.reveal(), exp_point.y.reveal())
+
+exp_point2 = p2.pub_exp(3)
+print_ln('Got: (%s, %s)', exp_point2.x.reveal(), exp_point2.y.reveal())
